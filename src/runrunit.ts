@@ -63,7 +63,7 @@ export class Runrunit {
     return stages.find((stage) => stage.name === stageName)?.id;
   };
 
-  listTasks = async (boardId: string, stageId: number, filter?: (task: Task) => boolean): Promise<Task[]> => {
+  listTasks = async (boardId: string | number, stageId: number, filter?: (task: Task) => boolean): Promise<Task[]> => {
     const tasks = await axios({
       ...this.payload,
       url: "/v1.0/tasks",

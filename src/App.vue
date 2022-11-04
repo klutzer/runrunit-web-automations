@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, reactive, watch } from "vue";
-import { Runrunit, type Board, type Stage } from "@/runrunit";
+import { Runrunit, type Board, type Stage, type Task } from "@/runrunit";
+import { isNil } from "lodash";
+import { formatISO } from "date-fns";
 
 let runrunit: Runrunit;
 
@@ -9,11 +11,35 @@ const authData = reactive({
   userToken: "",
 });
 
+const actions = [
+  { id: "move", label: "Mover tasks em massa" },
+  { id: "update", label: "Alterar tasks em massa" },
+] as const;
+
+const conditions = [
+  {
+    id: "with_desired_date",
+    label: "Todas as que possuem data de entrega (desired date)",
+    filter: (task: Task) => !isNil(task.desired_date),
+  },
+  {
+    id: "single_with_desired_date",
+    label: "Apenas as com data de entrega (desired date) para hoje",
+    filter: (task: Task) => task.desired_date === formatISO(new Date(), { representation: "date" }),
+  },
+] as const;
+
 const data = reactive({
+  loading: false,
   boards: [] as Board[],
   selectedBoard: {} as Board,
   stages: [] as Stage[],
-  selectedStage: {} as Stage,
+  selectedSourceStage: -1,
+  selectedDestinationStage: -1,
+  selectedActionId: "",
+  selectedConditionId: "",
+  previewed: false,
+  tasks: [] as Task[],
 });
 
 const listBoards = async () => {
@@ -25,7 +51,21 @@ const listBoards = async () => {
 
 const listStages = async () => {
   data.stages = await runrunit.listStages(data.selectedBoard.id);
-  data.selectedStage = data.stages[0];
+};
+
+const listTasks = async () => {
+  data.previewed = true;
+  data.loading = true;
+  const selectedCondition = conditions.find((c) => c.id === data.selectedConditionId);
+  data.tasks = await runrunit.listTasks(data.selectedBoard.id, data.selectedSourceStage, selectedCondition?.filter);
+  data.loading = false;
+};
+
+const moveTasks = async () => {
+  data.loading = true;
+  await runrunit.moveTasks(data.tasks, data.selectedSourceStage, data.selectedDestinationStage);
+  await listTasks();
+  data.loading = false;
 };
 
 onMounted(async () => {
@@ -68,8 +108,8 @@ watch(authData,
           </div>
           <div class="col-sm-12 mb-2">
             <label for="board" class="form-label">Board</label>
-            <select class="form-select form-select-lg" aria-label=".form-select-lg" v-model="data.selectedBoard"
-              @change="listStages">
+            <select class="form-select form-select-lg" id="board" aria-label=".form-select-lg"
+              v-model="data.selectedBoard" @change="listStages">
               <option v-for="board of data.boards" :value="board" :key="board.id">{{ board.name }}
               </option>
             </select>
@@ -77,17 +117,93 @@ watch(authData,
         </div>
       </div>
     </div>
-    <div class="card">
+    <div class="card mb-4">
       <div class="card-header">
         <font-awesome-icon icon="robot" />
         Automações
       </div>
       <div class="card-body">
         <div class="row">
-          <div class="col-sm mb-2">
-            <select class="form-select mb-2" aria-label=".form-select-lg" v-model="data.selectedStage">
-              <option v-for="stage of data.stages" :value="stage" :key="stage.id">{{ stage.name }}</option>
+          <div class="col-sm-12 mb-2">
+            <select class="form-select" aria-label=".form-select" v-model="data.selectedActionId">
+              <option disabled selected :value="''">Selecione a ação</option>
+              <option v-for="action of actions" :value="action.id" :key="action.id">{{
+                  action.label
+              }}</option>
             </select>
+          </div>
+        </div>
+        <div class="row" v-if="data.selectedActionId === 'move'">
+          <div class="col-sm mb-2">
+            <label for="sourceStage" class="form-label">Origem</label>
+            <select class="form-select" aria-label=".form-select" id="sourceStage" v-model="data.selectedSourceStage">
+              <option v-for="stage of data.stages" :value="stage.id" :key="stage.id">{{ stage.name }}</option>
+            </select>
+          </div>
+          <div class="col-sm mb-2">
+            <label for="sourceStage" class="form-label">Destino</label>
+            <select class="form-select" aria-label=".form-select" id="sourceStage"
+              v-model="data.selectedDestinationStage">
+              <option v-for="stage of data.stages" :value="stage.id" :key="stage.id">{{ stage.name }}</option>
+            </select>
+          </div>
+          <div class="col-sm-12 mb-2">
+            <label for="condition" class="form-label">Condição</label>
+            <select class="form-select" aria-label=".form-select" id="condition" v-model="data.selectedConditionId">
+              <option disabled selected :value="''">Selecione a condição</option>
+              <option v-for="condition of conditions" :value="condition.id" :key="condition.id">{{ condition.label }}
+              </option>
+            </select>
+          </div>
+          <div class="col-sm-6 d-grid mt-2">
+            <button class="btn btn-secondary" :disabled="data.loading" @click="listTasks">Preview</button>
+          </div>
+          <div class="col-sm-6 d-grid mt-2">
+            <button class="btn btn-primary" :disabled="data.loading || !data.previewed || data.tasks.length === 0"
+              @click="moveTasks">Mover</button>
+          </div>
+          <div class="d-grid mt-2" v-if="data.previewed">
+            <table class="table table-striped">
+              <thead class="table-secondary">
+                <tr v-if="data.loading">
+                  <th scope="col" colspan="5">Carregando...</th>
+                </tr>
+                <tr v-else>
+                  <th scope="col">Código</th>
+                  <th scope="col">Título</th>
+                  <th scope="col">Entrega Desejada</th>
+                  <th scope="col">De</th>
+                  <th scope="col">Para</th>
+                </tr>
+              </thead>
+              <tbody v-if="!data.loading">
+                <tr v-for="task of data.tasks" :key="task.id">
+                  <td>{{ task.id }}</td>
+                  <td>{{ task.title }}</td>
+                  <td>{{ task.desired_date }}</td>
+                  <td>{{ task.stage }}</td>
+                  <td>{{ data.stages.find((s) => s.id === data.selectedDestinationStage)?.name }}</td>
+                </tr>
+              </tbody>
+              <tfoot class="table-secondary">
+                <tr v-if="!data.loading">
+                  <td colspan="5">Total: {{ data.tasks.length }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card mb-4">
+      <div class="card-header">
+        <font-awesome-icon icon="terminal" />
+        Logs
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-sm-12">
+            <!-- <pre>{{ logs }}</pre> -->
           </div>
         </div>
       </div>
