@@ -5,6 +5,7 @@
     "sourceMap": true,
     "strict": true,
     "baseUrl": ".",
+    "lib": [ "esnext", "dom" ],
     "paths": {
       "@/*": ["./src/*"]
     }

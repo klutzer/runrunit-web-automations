@@ -57,15 +57,21 @@ const listTasks = async () => {
   data.previewed = true;
   data.loading = true;
   const selectedCondition = conditions.find((c) => c.id === data.selectedConditionId);
-  data.tasks = await runrunit.listTasks(data.selectedBoard.id, data.selectedSourceStage, selectedCondition?.filter);
-  data.loading = false;
+  await runrunit.listTasks(data.selectedBoard.id, data.selectedSourceStage, selectedCondition?.filter)
+    .then((tasks) => data.tasks = tasks)
+    .catch(() => data.tasks = [])
+    .finally(() => {
+      data.loading = false;
+    });
 };
 
 const moveTasks = async () => {
   data.loading = true;
-  await runrunit.moveTasks(data.tasks, data.selectedSourceStage, data.selectedDestinationStage);
-  await listTasks();
-  data.loading = false;
+  await runrunit.moveTasks(data.tasks, data.selectedSourceStage, data.selectedDestinationStage)
+    .finally(async () => {
+      await listTasks();
+      data.loading = false;
+    });
 };
 
 onMounted(async () => {
@@ -80,6 +86,7 @@ watch(authData,
   async (newValue) => {
     localStorage.appToken = newValue.appToken;
     localStorage.userToken = newValue.userToken;
+    await listBoards();
   },
   { deep: true },
 );
@@ -162,7 +169,7 @@ watch(authData,
             <button class="btn btn-primary" :disabled="data.loading || !data.previewed || data.tasks.length === 0"
               @click="moveTasks">Mover</button>
           </div>
-          <div class="d-grid mt-2" v-if="data.previewed">
+          <div class="d-grid mt-3" v-if="data.previewed">
             <table class="table table-striped">
               <thead class="table-secondary">
                 <tr v-if="data.loading">
@@ -191,19 +198,6 @@ watch(authData,
                 </tr>
               </tfoot>
             </table>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="card mb-4">
-      <div class="card-header">
-        <font-awesome-icon icon="terminal" />
-        Logs
-      </div>
-      <div class="card-body">
-        <div class="row">
-          <div class="col-sm-12">
-            <!-- <pre>{{ logs }}</pre> -->
           </div>
         </div>
       </div>
