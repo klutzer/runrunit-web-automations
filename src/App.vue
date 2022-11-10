@@ -105,6 +105,10 @@ watch(authData,
         <div class="row">
           <div class="col-sm mb-2">
             <label for="appToken" class="form-label">App Token</label>
+            <a class="m-2" href="https://runrun.it/integrations/api_webhooks" target="_blank"
+              title="Clique para buscar o token no seu Runrunit">
+              <font-awesome-icon icon="external-link-alt" />
+            </a>
             <input type="password" class="form-control" id="appToken" v-model="authData.appToken"
               @focusout="listBoards">
           </div>

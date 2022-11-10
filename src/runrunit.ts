@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 import axios from "axios";
+import { formatISO, set } from "date-fns";
+import { toDate } from "date-fns-tz";
 import { chain, isNil } from "lodash";
-import { format, formatISO, set } from "date-fns";
-import { utcToZonedTime, toDate } from "date-fns-tz";
 
 export type Board = {
   id: number;
