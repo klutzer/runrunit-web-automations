@@ -2,7 +2,7 @@
 import { onMounted, reactive, watch } from "vue";
 import { Runrunit, type Board, type Stage, type Task } from "@/runrunit";
 import { isNil } from "lodash";
-import { formatISO } from "date-fns";
+import { addDays, formatISO } from "date-fns";
 
 let runrunit: Runrunit;
 
@@ -32,9 +32,14 @@ const conditions = [
     filter: (task: Task) => !isNil(task.desired_date),
   },
   {
-    id: "single_with_desired_date",
+    id: "with_desired_date_today",
     label: "Apenas as com data de entrega (desired date) para hoje",
     filter: (task: Task) => task.desired_date === formatISO(new Date(), { representation: "date" }),
+  },
+  {
+    id: "with_desired_date_tomorrow",
+    label: "Apenas as com data de entrega (desired date) para amanhã",
+    filter: (task: Task) => task.desired_date === formatISO(addDays(new Date(), 1), { representation: "date" }),
   },
 ] as const;
 

@@ -120,11 +120,17 @@ export class Runrunit {
             check_subtasks: true,
           },
         }).catch((error) => {
-          console.error(`Error updating task ${task.id} - ${task.title}`);
+          console.error(`Erro ao mover task ${task.id} - ${task.title}`);
           const errorMessage = error.response.data;
-          throw new Error(errorMessage);
+          if (error.response.status === 429) {
+            throw new Error(errorMessage);
+          } else {
+            console.error(`Task ${id}: ${task.title} não foi movida!}`, errorMessage);
+          }
         }));
-        console.log(`Task ${id} moved: ${response.data.title}`);
+        if (response?.data) {
+          console.log(`Task ${id} moved: ${response.data.title}`);
+        }
       }));
     }
   };
@@ -159,11 +165,17 @@ export class Runrunit {
             },
           },
         }).catch((error) => {
-          console.error(`Error updating task ${task.id} - ${task.title}`);
+          console.error(`Erro ao atualizar task ${task.id} - ${task.title}`);
           const errorMessage = error.response.data;
-          throw new Error(errorMessage);
+          if (error.response.status === 429) {
+            throw new Error(errorMessage);
+          } else {
+            console.error(`Task ${id}: ${task.title} não foi atualizada!}`, errorMessage);
+          }
         }));
-        console.log(`Task ${id} updated desired_date to ${response.data.desired_date}: ${response.data.title}`);
+        if (response?.data) {
+          console.log(`Task ${id} updated desired_date to ${response.data.desired_date}: ${response.data.title}`);
+        }
       }));
     }
   };
