@@ -3,6 +3,7 @@ import axios from "axios";
 import { formatISO, set } from "date-fns";
 import { toDate } from "date-fns-tz";
 import { chain, isNil } from "lodash";
+import { retry } from "async";
 
 export type Board = {
   id: number;
@@ -40,6 +41,18 @@ export class Runrunit {
       validateStatus: (status: number) => status === 200,
     };
   }
+
+  private retryOptions = {
+    times: 10,
+    interval: (retryCount: number) => {
+      if (retryCount > 0) {
+        console.log(`Error. Retry count = ${retryCount}`);
+      }
+      console.log("Returning interval");
+
+      return 60000;
+    },
+  };
 
   listBoards = async () => {
     const response = await axios<Board[]>({
@@ -96,7 +109,7 @@ export class Runrunit {
       await new Promise((resolve) => setTimeout(resolve, 200));
       await Promise.all(move.map(async (task) => {
         const { id } = task;
-        const response = await axios({
+        const response = await retry(this.retryOptions, async () => await axios({
           ...this.payload,
           url: `/tasks/${id}/move`,
           method: "POST",
@@ -110,30 +123,33 @@ export class Runrunit {
           console.error(`Error updating task ${task.id} - ${task.title}`);
           const errorMessage = error.response.data;
           throw new Error(errorMessage);
-        });
+        }));
         console.log(`Task ${id} moved: ${response.data.title}`);
       }));
     }
   };
 
+  defineHour = (date: string | number | Date, hours: number, minutes?: number) => {
+    return formatISO(set(toDate(date), {
+      hours,
+      minutes: minutes ?? 0,
+      seconds: 0,
+      milliseconds: 0,
+    }));
+  };
+
   updateDesiredDate = async (tasks: Task[]): Promise<void> => {
-    const updatable = tasks.filter(this.shouldUpdateDesiredDate);
-    const updates = chain(updatable)
+    const updates = chain(tasks)
       .chunk(20)
       .value();
 
-    console.log(`Updating ${updatable.length} tasks...`);
+    console.log(`Updating ${tasks.length} tasks...`);
     for (const update of updates) {
       await new Promise((resolve) => setTimeout(resolve, 200));
       await Promise.all(update.map(async (task) => {
         const { id } = task;
-        const desired_date = formatISO(set(toDate(task.desired_start_date!), {
-          hours: 19,
-          minutes: 0,
-          seconds: 0,
-          milliseconds: 0,
-        }));
-        const response = await axios({
+        const desired_date = this.defineHour(task.desired_start_date!, 19);
+        const response = await retry(this.retryOptions, async () => await axios({
           ...this.payload,
           url: `/tasks/${id}`,
           method: "PUT",
@@ -146,7 +162,7 @@ export class Runrunit {
           console.error(`Error updating task ${task.id} - ${task.title}`);
           const errorMessage = error.response.data;
           throw new Error(errorMessage);
-        });
+        }));
         console.log(`Task ${id} updated desired_date to ${response.data.desired_date}: ${response.data.title}`);
       }));
     }
