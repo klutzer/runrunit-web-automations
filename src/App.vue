@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, watch } from "vue";
+import { onMounted, reactive, ref, watch } from "vue";
 import { Runrunit, type Board, type Stage, type Task } from "@/runrunit";
 import { isNil } from "lodash";
 import { addDays, formatISO } from "date-fns";
@@ -11,6 +11,8 @@ const authData = reactive({
   userToken: "",
 });
 
+const selectedActionId = ref("");
+
 const data = reactive({
   loading: false,
   boards: [] as Board[],
@@ -18,7 +20,6 @@ const data = reactive({
   stages: [] as Stage[],
   selectedSourceStage: -1,
   selectedDestinationStage: -1,
-  selectedActionId: "",
   selectedConditionId: "",
   selectedUpdateConditionId: "",
   previewed: false,
@@ -70,7 +71,7 @@ const listStages = async () => {
 };
 
 const getSelectedCondition = () => {
-  const selectedAction = actions.find((action) => action.id === data.selectedActionId)!;
+  const selectedAction = actions.find((action) => action.id === selectedActionId.value)!;
   const listOfConditions: readonly {
     readonly id: string;
     readonly label: string;
@@ -137,6 +138,8 @@ watch(authData,
   { deep: true },
 );
 
+watch(selectedActionId, () => data.tasks = []);
+
 </script>
 
 <template>
@@ -182,7 +185,7 @@ watch(authData,
       <div class="card-body">
         <div class="row">
           <div class="col-sm-12 mb-2">
-            <select class="form-select" aria-label=".form-select" v-model="data.selectedActionId">
+            <select class="form-select" aria-label=".form-select" v-model="selectedActionId">
               <option disabled selected :value="''">Selecione a ação</option>
               <option v-for="action of actions" :value="action.id" :key="action.id">
                 {{ action.label }}
@@ -192,7 +195,7 @@ watch(authData,
         </div>
 
         <!-- Move tasks -->
-        <div class="row" v-if="data.selectedActionId === 'move'">
+        <div class="row" v-if="selectedActionId === 'move'">
           <div class="col-sm mb-2">
             <label for="sourceStage" class="form-label">Origem</label>
             <select class="form-select" aria-label=".form-select" id="sourceStage" v-model="data.selectedSourceStage">
@@ -255,7 +258,7 @@ watch(authData,
         </div>
 
         <!-- Update tasks -->
-        <div class="row" v-if="data.selectedActionId === 'update'">
+        <div class="row" v-if="selectedActionId === 'update'">
           <div class="col-sm mb-2">
             <label for="sourceStage" class="form-label">Coluna</label>
             <select class="form-select" aria-label=".form-select" id="sourceStage" v-model="data.selectedSourceStage">
